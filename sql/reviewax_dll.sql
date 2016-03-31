@@ -66,23 +66,32 @@ CREATE TABLE app_user (
 	version integer NOT NULL DEFAULT 0
 );
 
-
 -- Populate seed values before making triggers and FK constraints
 -- For prod system, these values need to be obtained during initial configuration prior to DB creation
-SELECT * FROM INSERT INTO person(email, last_name, first_name, created_by, updated_by)
-	VALUES('lbmaxwelll@gmail.com', 'Maxwell', 'Lewis', 1,1)
-	RETURNING id INTO  first_person_id;
+INSERT INTO person(email, last_name, first_name, created_by, updated_by)
+	VALUES('lbmaxwelll@gmail.com', 'Maxwell', 'Lewis', 1,1);
 
-INSERT INTO app_user(username, personId)
-		VALUES('lbmaxwell', (SELECT MIN(id) FROM person;))
-		RETURNING id;
+INSERT INTO app_user(name, person_id, created_by, updated_by)
+		VALUES('lbmaxwell', (SELECT MIN(id) FROM person), 1, 1);
 
-UPDATE person(created_by, updated_by)
-	VALUES(first_user_i, first_user_id);
+UPDATE person SET created_by =	(SELECT MIN(id) FROM app_user),
+		updated_by = (SELECT MIN(id) FROM app_user);
 
-UPDATE app_user(created_by, updated_by)
-	VALUES(first_user_id, first_user_id);
+UPDATE app_user SET created_by =	(SELECT MIN(id) FROM app_user),
+		updated_by = (SELECT MIN(id) FROM app_user);
 
+ALTER TABLE person ADD CONSTRAINT person_created_by_fkey
+	FOREIGN KEY (created_by) REFERENCES app_user(id);
+
+ALTER TABLE person ADD CONSTRAINT person_updated_by_fkey
+	FOREIGN KEY (updated_by) REFERENCES app_user(id);
+
+ALTER TABLE app_user ADD CONSTRAINT app_user_created_by_fkey
+	FOREIGN KEY (created_by) REFERENCES app_user(id);
+
+ALTER TABLE app_user ADD CONSTRAINT app_user_updated_by_fkey
+	FOREIGN KEY (updated_by) REFERENCES app_user(id);
+	
 CREATE TRIGGER trg_person_update
 	BEFORE UPDATE ON person FOR EACH ROW
 		EXECUTE PROCEDURE update_version_and_updated_at();
@@ -107,16 +116,16 @@ CREATE TABLE campaign (
 	name varchar(100),
 	startDate date,
 	endDate date,
-	isClosed boolean DEFAULT FALSE
-	created_by bigint NOT NULL,
+	is_closed boolean DEFAULT FALSE,
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
 
 CREATE TRIGGER trg_campaign_update
-	BEFORE UPDATE ON compaign FOR EACH ROW
+	BEFORE UPDATE ON campaign FOR EACH ROW
 		EXECUTE PROCEDURE update_version_and_updated_at();
 
 
@@ -126,9 +135,9 @@ CREATE TABLE system (
 	id bigint PRIMARY KEY DEFAULT next_id('system'),
 	name varchar(100) NOT NULL,
 	description varchar(1000),
-	created_by bigint NOT NULL,
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
@@ -141,11 +150,11 @@ CREATE SEQUENCE seq_system_ownership_id;
 
 CREATE TABLE system_ownership (
 	id bigint PRIMARY KEY DEFAULT next_id('system_ownership'),
-	system_id NOT NULL REFERENCES system(id),
-	person_id NOT NULL REFERENCES person(id),
-	created_by bigint NOT NULL,
+	system_id bigint NOT NULL REFERENCES system(id),
+	person_id bigint NOT NULL REFERENCES person(id),
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
@@ -154,15 +163,15 @@ CREATE SEQUENCE seq_import_id;
 
 CREATE TABLE import (
 	id bigint PRIMARY KEY DEFAULT next_id('import'),
-	campaign_id NOT NULL REFERENCES campaign(id),
-	system_id NOT NULL REFERENCES system(id),
+	campaign_id bigint NOT NULL REFERENCES campaign(id),
+	system_id bigint NOT NULL REFERENCES system(id),
 	import_date date NOT NULL,
 	data_source varchar(100),
 	source_query text,
 	raw_data text,
-	created_by bigint NOT NULL,
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
@@ -171,11 +180,12 @@ CREATE SEQUENCE seq_entitlement_id;
 
 CREATE TABLE entitlement (
 	id bigint PRIMARY KEY DEFAULT next_id('entitlement'),
-	system_id NOT NULL REFERENCES system(id),
+	system_id bigint NOT NULL REFERENCES system(id),
 	name varchar(100) NOT NULL,
-	created_by bigint NOT NULL,
+	description varchar(1000),
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
@@ -184,11 +194,11 @@ CREATE SEQUENCE seq_entitlement_ownership_id;
 
 CREATE TABLE entitlement_ownership (
 	id bigint PRIMARY KEY DEFAULT next_id('entitlement_ownership'),
-	entitlement_id NOT NULL REFERENCES entitlement(id),
-	person_id NOT NULL REFERENCES person(id),
-	created_by bigint NOT NULL,
+	entitlement_id bigint NOT NULL REFERENCES entitlement(id),
+	person_id bigint NOT NULL REFERENCES person(id),
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
@@ -198,10 +208,10 @@ CREATE SEQUENCE seq_account_id;
 CREATE TABLE account (
 	id bigint PRIMARY KEY DEFAULT next_id('account'),
 	name varchar(100) NOT NULL,
-	system_id NOT NULL REFERENCES system(id),
-	created_by bigint NOT NULL,
+	system_id bigint NOT NULL REFERENCES system(id),
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
@@ -210,50 +220,39 @@ CREATE SEQUENCE seq_account_history_id;
 
 CREATE TABLE account_history (
 	id bigint PRIMARY KEY DEFAULT next_id('account_history'),
-	account_id NOT NULL REFERENCES account(id),
-	import_id NOT NULL REFERENCES import(id),
-	created_by bigint NOT NULL,
+	account_id bigint NOT NULL REFERENCES account(id),
+	import_id bigint NOT NULL REFERENCES import(id),
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
 
 CREATE SEQUENCE seq_account_entitlement_id; 
 
-CREATE TABLE seq_account_entitlement (
+CREATE TABLE account_entitlement (
 	id bigint PRIMARY KEY DEFAULT next_id('account_entitlement'),
-	account_id NOT NULL REFERENCES account(id),
-	entitlement_id NOT NULL REFERENCES entitlement(id),
-	created_by bigint NOT NULL,
+	account_id bigint NOT NULL REFERENCES account(id),
+	entitlement_id bigint NOT NULL REFERENCES entitlement(id),
+	import_history bigint[] NOT NULL, 
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
 
-CREATE SEQUENCE seq_account_entitlement_history_id; 
+CREATE SEQUENCE seq_account_entitlement_review_id; 
 
-CREATE TABLE seq_account_entitlement_history (
-	id bigint PRIMARY KEY DEFAULT next_id('account_entitlement_history'),
-	account_entitlement_id NOT NULL REFERENCES account_entitlement(id),
-	import_id NOT NULL REFERENECES import(id),
-	created_by bigint NOT NULL,
+CREATE TABLE account_entitlement_review (
+	id bigint PRIMARY KEY DEFAULT next_id('account_entitlement_review'),
+	account_entitlement_id bigint NOT NULL REFERENCES account_entitlement(id),
+	reviewer_user_id bigint NOT NULL REFERENCES app_user(id),
+	is_approved boolean,
+	created_by bigint NOT NULL REFERENCES app_user(id),
 	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
-	updated_at timestamp NOT NULL DEFAULT current_timestamp,
-	version integer NOT NULL DEFAULT 0
-);
-
-CREATE SEQUENCE seq_review_id; 
-
-CREATE TABLE review (
-	id bigint PRIMARY KEY DEFAULT next_id('review'),
-	name varchar(100) NOT NULL,
-	system_id NOT NULL REFERENCES system(id),
-	created_by bigint NOT NULL,
-	created_at timestamp NOT NULL DEFAULT current_timestamp,
-	updated_by bigint NOT NULL,
+	updated_by bigint NOT NULL REFERENCES app_user(id),
 	updated_at timestamp NOT NULL DEFAULT current_timestamp,
 	version integer NOT NULL DEFAULT 0
 );
