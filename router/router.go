@@ -2,40 +2,43 @@ package router
 
 import (
 	"net/http"
+	"reviewax/control"
 
 	"github.com/gorilla/mux"
 
-	"html/template" // Move this to controllers - just here for prelim testing
+	// Move this to controllers - just here for prelim testing
+	"html/template"
+	"reviewax/config"
+	"reviewax/db"
 	//"reviewax/model" // Move this to controllers - just here for prelim testing
+	// db should not be called from here for prod - called here for testing
 )
-
-// appHome variable needs to be loaded from a config file
-// static assignement of appHome below is temporary
-var appRoot = "/home/bmaxwell/go/src/reviewax"
 
 // Listen is the first method handling incoming requests
 func Listen() {
 	r := mux.NewRouter()
-	r.HandleFunc("/", RootHandler)
-	r.HandleFunc("/test", TestHandler)
-
+	r.HandleFunc("/setup", control.SetupIndex)
+	r.HandleFunc("/ttest", control.TemplateTest)
+	r.HandleFunc("/gtest", GorillaTestHandler)
+	r.HandleFunc("/dbtest", DbTestHandler)
 	http.ListenAndServe(":8080", r)
 }
 
-func RootHandler(w http.ResponseWriter, r *http.Request) {
+func DbTestHandler(w http.ResponseWriter, r *http.Request) {
 	// Successfully servers file. Static content served via nginx
 	//http.ServeFile(w, r, appRoot+"/view/index.html")
 
 	// This block worked
-	//	t, _ := template.ParseFiles(appRoot + "/view/test.html")
-	//	p := model.Person{Email: "test@test.com", FirstName: "John", LastName: "Doe", Title: "Test Title Variable Value"}
-	//	t.Execute(w, p)
+	t, _ := template.ParseFiles(config.AppRoot + "/view/dbtest.html")
+	//p := model.Person{Email: "test@test.com", FirstName: "John", LastName: "Doe", Title: "Test Title Variable Value"}
+	p := db.GetPersonByEmail("admin@domain.com")
+	t.Execute(w, p)
 
-	t, _ := template.ParseFiles(appRoot + "/view/index.html")
-	t.Execute(w, nil)
+	// This block worked
+	//	t, _ := template.ParseFiles(appRoot + "/view/index.html")
+	//	t.Execute(w, nil)
 }
 
-func TestHandler(w http.ResponseWriter, r *http.Request) {
+func GorillaTestHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Gorilla Mux Test - TestHandler\n"))
-
 }

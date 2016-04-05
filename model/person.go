@@ -1,10 +1,19 @@
 package model
 
+import (
+	"time"
+)
+
 type Person struct {
-	Email     string
-	FirstName string
-	LastName  string
-	Title     string
+	Id        uint64    `db:"id"`
+	Email     string    `db:"email"`
+	LastName  string    `db:"last_name"`
+	FirstName string    `db:"first_name"`
+	CreatedBy uint64    `db:"created_by"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedBy uint64    `db:"updated_by"`
+	UpdatedAt time.Time `db:"updated_at"`
+	Version   uint32    `db:"version"`
 }
 
 /*
